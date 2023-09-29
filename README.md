@@ -18,4 +18,6 @@ See [this colab](https://colab.research.google.com/drive/1eCuiuP1UD7NzRYIDavccUp
 - Run `!pip install git+https://github.com/DylanASHillier/cil-project.git`
 
 ## Usage Instructions
-???
+Please use linting and formatting tools to make
+sure your code is clean... I am using `black` and
+`pylint`.
