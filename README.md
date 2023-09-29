@@ -14,6 +14,7 @@ From the root directory:
 - Run `pip install -e .`
 
 From colab via github:
+See [this colab](https://colab.research.google.com/drive/1eCuiuP1UD7NzRYIDavccUpu01y1Mgjl2?usp=sharing) for how to install the package from github
 - Run `!pip install git+https://github.com/DylanASHillier/cil-project.git`
 
 ## Usage Instructions
