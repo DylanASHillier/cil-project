@@ -37,6 +37,11 @@ class CommonModel(nn.Module, abc.ABC):
 
 
 class CombinedModel(nn.Module):
+    """A model used to combine together different subcomponents,
+
+    handling the logic of passing the data between them, and
+    whether or not they exist."""
+
     def __init__(
         self,
         per_phase_model: PerPhaseModel,
