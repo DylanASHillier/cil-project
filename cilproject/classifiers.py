@@ -3,7 +3,7 @@ import sklearn.linear_model as linear_model
 import torch
 
 
-def get_classifier(classifier_name: str, device: str | None, num_classes: int | None):
+def get_classifier(classifier_name: str):
     """Returns a classifier."""
     if classifier_name == "linear":
         return linear_model.LogisticRegression(multi_class="multinomial", max_iter=1000)
@@ -11,9 +11,9 @@ def get_classifier(classifier_name: str, device: str | None, num_classes: int | 
         raise ValueError(f"Unknown classifier {classifier_name}.")
 
 
-def train_classifier(classifier_name, history, device="cpu"):
+def train_classifier(classifier_name, history):
     """Trains a classifier."""
-    classifier = get_classifier(classifier_name, device, len(history))
+    classifier = get_classifier(classifier_name)
     X = []
     y = []
     for label, embeddings in history.items():

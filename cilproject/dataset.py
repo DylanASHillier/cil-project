@@ -1,6 +1,7 @@
 """Utilites for loading the dataset in all it's forms"""
 import torchvision.datasets
 import torchvision.transforms
+import torch.utils.data as data
 
 
 def get_train_dataset(phase, transform, data_dir="data"):
@@ -10,11 +11,17 @@ def get_train_dataset(phase, transform, data_dir="data"):
     )
 
 
-def get_leaderboard_val_dataset(transform):
-    """Returns the leaderboard val dataset."""
-    return torchvision.datasets.ImageFolder(
-        "../data/leaderboard_val", transform=transform
-    )
+class LeaderboardValDataset(data.Dataset):
+    """The leaderboard val dataset."""
+
+    def __init__(self, path, transform):
+        self.dataset = torchvision.datasets.ImageFolder(path, transform=transform)
+
+    def __getitem__(self, index):
+        return self.dataset[index], self.dataset.imgs[index][0]
+
+    def __len__(self):
+        return len(self.dataset)
 
 
 def get_imagenet_transform():

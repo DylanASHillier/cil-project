@@ -62,10 +62,13 @@ def run_experiment(
         )
         print(f"Saving predictions for phase {phase}")
         classifier = classifiers.train_classifier(
-            classifier_name="linear", history=history, embedder=embedder, device="mps"
+            classifier_name="linear", history=history
         )
         predictions.save_predictions(
-            dataset.get_leaderboard_val_dataset(dataset.get_imagenet_transform()),
+            dataset.LeaderboardValDataset(
+                f"{data_folder_path}/Val",
+                dataset.get_imagenet_transform(),
+            ),
             embedder=embedder,
             classifier=classifier,
             pred_path=pred_path,
