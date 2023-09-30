@@ -21,3 +21,5 @@ See [this colab](https://colab.research.google.com/drive/1eCuiuP1UD7NzRYIDavccUp
 Please use linting and formatting tools to make
 sure your code is clean... I am using `black` and
 `pylint`.
+
+In particular you can lint like `pylint --rcfile=pylintrc $(git ls-files '*.py')` once you install the package.
