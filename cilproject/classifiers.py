@@ -11,13 +11,13 @@ def get_classifier(classifier_name: str, device: str | None, num_classes: int | 
         raise ValueError(f"Unknown classifier {classifier_name}.")
 
 
-def train_classifier(classifier_name, history, embedder, device="cpu"):
+def train_classifier(classifier_name, history, device="cpu"):
     """Trains a classifier."""
     classifier = get_classifier(classifier_name, device, len(history))
     X = []
     y = []
-    for label, images in history.items():
-        X.extend(images)
-        y.extend([label] * len(images))
+    for label, embeddings in history.items():
+        X.extend(embeddings)
+        y.extend([label] * len(embeddings))
     classifier.fit(X, y)
     return classifier
