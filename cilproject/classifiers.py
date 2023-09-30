@@ -1,5 +1,6 @@
 """Stores the classification heads and sklearn training code."""
 import sklearn.linear_model as linear_model
+import torch
 
 
 def get_classifier(classifier_name: str, device: str | None, num_classes: int | None):
@@ -16,8 +17,7 @@ def train_classifier(classifier_name, history, embedder, device="cpu"):
     X = []
     y = []
     for label, images in history.items():
-        for image, phase in images:
-            X.append(embedder(image.unsqueeze(0).to(device)).detach().cpu().numpy()[0])
-            y.append(phase)
+        X.extend(images)
+        y.extend([label] * len(images))
     classifier.fit(X, y)
     return classifier
