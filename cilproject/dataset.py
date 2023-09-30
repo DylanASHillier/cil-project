@@ -18,7 +18,7 @@ class LeaderboardValDataset(data.Dataset):
         self.dataset = torchvision.datasets.ImageFolder(path, transform=transform)
 
     def __getitem__(self, index):
-        return self.dataset[index], self.dataset.imgs[index][0]
+        return self.dataset[index][0], self.dataset.imgs[index][0]
 
     def __len__(self):
         return len(self.dataset)

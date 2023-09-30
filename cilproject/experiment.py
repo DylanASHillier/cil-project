@@ -13,7 +13,7 @@ import typer
 
 def run_experiment(
     data_folder_path: str = typer.Argument(...),
-    device: str = typer.Option("cpu"),
+    device: str = typer.Option("mps"),
     random_seed: int = typer.Option(42),
     embedding_model: str = typer.Option("hf_hub:timm/tiny_vit_21m_224.in1k"),
     memory_type: str = typer.Option("kmeans"),
@@ -48,6 +48,7 @@ def run_experiment(
             embedder=embedder,
             label_offset=(phase - 1) * 10,
             max_per_class=1000,
+            device=device,
         )
         memory_func = memory.get_memory_function(memory_type)
         history = memory_func(

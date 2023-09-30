@@ -8,10 +8,15 @@ def _split_by_label(dataset, label):
     return [x for x, y in dataset if y == label]
 
 
-def add_memory(memory, dataset, embedder, label_offset: int, max_per_class=5, **_):
+def add_memory(
+    memory, dataset, embedder, label_offset: int, max_per_class=5, device="cpu", **_
+):
     for label in range(10):
         chosen = _split_by_label(dataset, label)[:max_per_class]
-        memory[label + label_offset] += embedder(torch.stack(chosen)).tolist()
+        with torch.no_grad():
+            memory[label + label_offset] += embedder(
+                torch.stack(chosen).to(device)
+            ).tolist()
     return memory
 
 
