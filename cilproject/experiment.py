@@ -16,7 +16,7 @@ def run_experiment(
     data_folder_path: str = typer.Argument(...),
     device: str = typer.Option("cpu"),
     random_seed: int = typer.Option(42),
-    embedding_model: str = typer.Option("resnet18"),
+    embedding_model: str = typer.Option("hf_hub:timm/tiny_vit_21m_224.in1k"),
     memory_type: str = typer.Option("kmeans"),
     pred_path: str = typer.Option(None),
     phase_model: str = typer.Option(None),

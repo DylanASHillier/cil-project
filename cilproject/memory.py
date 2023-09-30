@@ -28,12 +28,10 @@ def add_kmeans_memory(
     for label in labels:
         splits = _split_by_label(dataset, label)
         # use sklearn to find centers
-        embeddings = []
-        for split in splits:
-            split = split.to(device)
-            with torch.no_grad():
-                embeddings.append(embedder(split.unsqueeze(0)).squeeze())
-        splits = torch.stack(embeddings).cpu()
+        splits = torch.stack(splits).to(device)
+        with torch.no_grad():
+            splits = embedder(splits).squeeze()
+        splits = splits.cpu().detach().numpy()
         kmeans = sklearn.cluster.KMeans(
             n_clusters=max_per_class, random_state=0, n_init="auto"
         ).fit(splits)

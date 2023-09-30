@@ -49,9 +49,9 @@ class EmbedderCache(nn.Module):
 
     def forward(self, x: torch.Tensor):
         """Forward pass through the embedder."""
-        if x.device not in self.cache:
-            self.cache[x.device] = self.embedder(x)
-        return self.cache[x.device]
+        if x not in self.cache:
+            self.cache[x] = self.embedder(x)
+        return self.cache[x]
 
     def train(self, mode=True):
         self.embedder.train(mode)

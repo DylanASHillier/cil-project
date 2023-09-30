@@ -6,7 +6,7 @@ import torchvision.transforms
 def get_train_dataset(phase, transform, data_dir="data"):
     """Returns the train dataset for a given phase."""
     return torchvision.datasets.ImageFolder(
-        f"{data_dir}/Train/phase_{phase}/train", transform=transform
+        f"{data_dir}/Train/phase_{phase}", transform=transform
     )
 
 
