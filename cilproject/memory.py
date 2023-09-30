@@ -8,7 +8,7 @@ def _split_by_label(dataset, label):
     return [x for x, y in dataset if y == label]
 
 
-def add_memory(memory, dataset, embedder, label_offset: int, max_per_class=5, **kwargs):
+def add_memory(memory, dataset, embedder, label_offset: int, max_per_class=5, **_):
     for label in range(10):
         chosen = _split_by_label(dataset, label)[:max_per_class]
         memory[label + label_offset] += embedder(torch.stack(chosen)).tolist()
@@ -23,7 +23,7 @@ def add_kmeans_memory(
     max_per_class=5,
     device="cpu",
     labels=range(10),
-    **kwargs,
+    **_,
 ):
     for label in labels:
         splits = _split_by_label(dataset, label)

@@ -1,15 +1,14 @@
 """Script used for running training experiments."""
-import torch
-import typer
-import torch.utils.data
 import collections
-import memory
+
+import classifiers
 import dataset
 import embedders
-import classifiers
+import memory
 import predictions
-import models
-import tqdm
+import torch
+import torch.utils.data
+import typer
 
 
 def run_experiment(
@@ -21,7 +20,6 @@ def run_experiment(
     pred_path: str = typer.Option(None),
     phase_model: str = typer.Option(None),
     aggregation: str = typer.Option(None),
-    batch_size: int = typer.Option(32),
 ):
     """Runs an experiment."""
     torch.manual_seed(random_seed)

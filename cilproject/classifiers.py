@@ -1,6 +1,5 @@
 """Stores the classification heads and sklearn training code."""
 import sklearn.linear_model as linear_model
-import torch
 
 
 def get_classifier(classifier_name: str):
