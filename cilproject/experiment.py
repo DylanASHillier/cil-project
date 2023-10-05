@@ -1,11 +1,14 @@
 """Script used for running training experiments."""
 import collections
 
-import classifiers
-import dataset
-import embedders
-import memory
-import predictions
+import cilproject.classifiers as classifiers
+import cilproject.dataset as dataset
+import cilproject.embedders as embedders
+import cilproject.memory as memory
+import cilproject.predictions as predictions
+import cilproject.evaluate as evaluate
+import cilproject.models as models
+import cilproject.train as train
 import torch
 import torch.utils.data
 import typer
@@ -19,18 +22,24 @@ def run_experiment(
     memory_type: str = typer.Option("kmeans"),
     pred_path: str = typer.Option(None),
     phase_model: str = typer.Option(None),
+    common_model: str = typer.Option(None),
     aggregation: str = typer.Option(None),
+    save_preds: bool = typer.Option(False),
+    train_type: str = typer.Option("contrastive"),
 ):
     """Runs an experiment."""
     torch.manual_seed(random_seed)
-    if phase_model is None:
-        phase_model = "linear"
     if aggregation is None:
-        aggregation = "mean"
-    embedder = embedders.get_embedder(device, embedding_model)
+        aggregation = "concat"
+    embedder = embedders.get_embedder(device, embedding_model, use_existing_head=True)
     embedder = embedders.EmbedderCache(embedder)
     history = collections.defaultdict(list)
     val_history = collections.defaultdict(list)
+    model = models.get_model(
+        phase_model, aggregation, common_model, embedding_size=1000
+    )
+    print(model)
+    model.to(device)
     for phase in range(1, 11):
         train_dataset = dataset.get_train_dataset(
             phase, dataset.get_imagenet_transform(), data_dir=data_folder_path
@@ -42,6 +51,39 @@ def run_experiment(
                 len(train_dataset) - int(0.8 * len(train_dataset)),
             ],
         )
+        train_ds = dataset.EmbeddedDataset(
+            train_ds,
+            embedder,
+            device=device,
+            save_path=f"{data_folder_path}/train_{phase}.pt",
+        )
+        val_ds = dataset.EmbeddedDataset(
+            val_ds,
+            embedder,
+            device=device,
+            save_path=f"{data_folder_path}/val_{phase}.pt",
+        )
+        print(f"Saving predictions for phase {phase}")
+        if model.per_phase_models is not None and train_type == "contrastive":
+            model = train.train_model_contrastive(
+                model,
+                train_ds,
+                phase=phase,
+                history=history,
+                epochs=100,
+                device=device,
+                lr=1e-5,
+            )
+        elif model.per_phase_models is not None and train_type == "supervised":
+            model = train.train_model_cross_entropy(
+                model,
+                train_ds,
+                phase=phase,
+                history=history,
+                epochs=100,
+                device=device,
+                lr=1e-5,
+            )
         val_history = memory.add_memory(
             val_history,
             val_ds,
@@ -59,21 +101,32 @@ def run_experiment(
             max_per_class=5,
             device=device,
         )
-        print(f"Saving predictions for phase {phase}")
+        model_history = models.get_model_embedded_history(model, history, device=device)
         classifier = classifiers.train_classifier(
-            classifier_name="linear", history=history
+            classifier_name="linear",
+            history=model_history,
         )
-        predictions.save_predictions(
-            dataset.LeaderboardValDataset(
-                f"{data_folder_path}/Val",
-                dataset.get_imagenet_transform(),
-            ),
-            embedder=embedder,
-            classifier=classifier,
-            pred_path=pred_path,
-            device="mps",
-            phase=phase,
-        )
+        if save_preds:
+            predictions.save_predictions(
+                dataset.LeaderboardValDataset(
+                    f"{data_folder_path}/Val",
+                    dataset.get_imagenet_transform(),
+                ),
+                embedder=embedder,
+                classifier=classifier,
+                pred_path=pred_path,
+                device="mps",
+                phase=phase,
+            )
+        else:
+            model_val_history = models.get_model_embedded_history(
+                model, val_history, device=device
+            )
+            score = evaluate.evaluate_classifier(
+                model_val_history,
+                classifier,
+            )
+            print(f"Phase {phase} score: {score}")
         print(f"Phase {phase}: {len(train_dataset)} images")
 
 

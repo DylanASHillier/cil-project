@@ -2,6 +2,7 @@
 import torchvision.datasets
 import torchvision.transforms
 import torch.utils.data as data
+import torch
 
 
 def get_train_dataset(phase, transform, data_dir="data"):
@@ -19,6 +20,45 @@ class LeaderboardValDataset(data.Dataset):
 
     def __getitem__(self, index):
         return self.dataset[index][0], self.dataset.imgs[index][0]
+
+    def __len__(self):
+        return len(self.dataset)
+
+
+class EmbeddedDataset(data.Dataset):
+    """A dataset that returns the embedding of the image."""
+
+    def __init__(self, dataset, embedder, device="cpu", save_path=None):
+        self.dataset = dataset
+        self.embedder = embedder
+        self.device = device
+        self.save_path = save_path
+        if self.save_path is not None:
+            self.save_and_embed()
+
+    def save_and_embed(self):
+        """Saves the embeddings of the dataset."""
+        if self.save_path is None:
+            return
+        embeddings = []
+        dl = data.DataLoader(
+            self.dataset,
+            batch_size=64,
+            shuffle=False,
+        )
+        for x, _ in dl:
+            with torch.no_grad():
+                embeddings.extend(self.embedder(x.to(self.device)).cpu())
+        torch.save(torch.stack(embeddings), self.save_path)
+
+    def __getitem__(self, index):
+        if self.save_path is None:
+            return (
+                self.embedder(self.dataset[index][0].to(self.device)).cpu(),
+                self.dataset[index][1],
+            )
+        else:
+            return torch.load(self.save_path)[index], self.dataset[index][1]
 
     def __len__(self):
         return len(self.dataset)

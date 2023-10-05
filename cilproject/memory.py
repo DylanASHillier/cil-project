@@ -13,10 +13,7 @@ def add_memory(
 ):
     for label in range(10):
         chosen = _split_by_label(dataset, label)[:max_per_class]
-        with torch.no_grad():
-            memory[label + label_offset] += embedder(
-                torch.stack(chosen).to(device)
-            ).tolist()
+        memory[label + label_offset] += chosen
     return memory
 
 
@@ -32,16 +29,13 @@ def add_kmeans_memory(
 ):
     for label in labels:
         splits = _split_by_label(dataset, label)
-        # use sklearn to find centers
-        splits = torch.stack(splits).to(device)
-        with torch.no_grad():
-            splits = embedder(splits).squeeze()
-        splits = splits.cpu().detach().numpy()
+        splits = torch.stack(splits).numpy()
         kmeans = sklearn.cluster.KMeans(
             n_clusters=max_per_class, random_state=0, n_init="auto"
         ).fit(splits)
         # find indices of centers and add only those to memory
         centers = list(kmeans.cluster_centers_)
+        centers = [torch.from_numpy(x).to(device) for x in centers]
         memory[label + label_offset] += centers
     return memory
 

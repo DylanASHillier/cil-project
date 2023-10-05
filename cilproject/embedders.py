@@ -25,15 +25,19 @@ class FrozenEmbedder(nn.Module):
 class TimmEmbedder(nn.Module):
     """An embedder that uses a pretrained timm model."""
 
-    def __init__(self, model_name, pretrained=True):
+    def __init__(self, model_name, pretrained=True, use_existing_head=False):
         super().__init__()
         self.model = timm.create_model(model_name, pretrained=pretrained)
         self.model.eval()
-        # self.model.reset_classifier(num_classes=num_classes)
+        self.use_existing_head = use_existing_head
 
     def forward(self, x: torch.Tensor):
         """Forward pass through the embedder."""
-        return self.model(x)
+        if self.use_existing_head:
+            return self.model(x)
+        out = self.model.forward_features(x)
+        out = torch.nn.AdaptiveAvgPool2d((1, 1))(out).squeeze()
+        return out
 
     def train(self, mode=True):
         self.model.train(mode)
@@ -49,14 +53,12 @@ class EmbedderCache(nn.Module):
 
     def forward(self, x: torch.Tensor):
         """Forward pass through the embedder."""
-        if x not in self.cache:
-            self.cache[x] = self.embedder(x)
-        return self.cache[x]
+        return self.embedder(x)
 
     def train(self, mode=True):
         self.embedder.train(mode)
 
 
-def get_embedder(device: str, model_name: str):
+def get_embedder(device: str, model_name: str, **kwargs):
     """Returns the embedder."""
-    return TimmEmbedder(model_name).to(device)
+    return TimmEmbedder(model_name, **kwargs).to(device)
