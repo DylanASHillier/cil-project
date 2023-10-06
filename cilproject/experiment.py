@@ -70,9 +70,9 @@ def run_experiment(
                 train_ds,
                 phase=phase,
                 history=history,
-                epochs=100,
+                epochs=10,
                 device=device,
-                lr=1e-5,
+                lr=1e-4,
             )
         elif model.per_phase_models is not None and train_type == "supervised":
             model = train.train_model_cross_entropy(
@@ -80,9 +80,9 @@ def run_experiment(
                 train_ds,
                 phase=phase,
                 history=history,
-                epochs=100,
+                epochs=10,
                 device=device,
-                lr=1e-5,
+                lr=1e-4,
             )
         val_history = memory.add_memory(
             val_history,

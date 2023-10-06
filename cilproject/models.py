@@ -76,7 +76,9 @@ class NormMLPResidualHead(PerPhaseModel):
         )
 
     def forward(self, x):
-        return self.base_model(x) + self.residual_model(x)
+        with torch.no_grad():
+            x_base = self.base_model(x)
+        return x_base + self.residual_model(x)
 
 
 class Aggregator(nn.Module, abc.ABC):
@@ -97,6 +99,15 @@ class ConcatAggregator(Aggregator):
         elif per_phase_embeddings is None:
             return common_embedding
         return torch.cat([common_embedding] + per_phase_embeddings, dim=1)
+
+
+class AddAggregator(Aggregator):
+    def forward(self, common_embedding, per_phase_embeddings):
+        if common_embedding is None:
+            return sum(per_phase_embeddings)
+        elif per_phase_embeddings is None:
+            return common_embedding
+        return common_embedding + sum(per_phase_embeddings)
 
 
 class CommonModel(nn.Module, abc.ABC):
@@ -158,6 +169,12 @@ def get_model(
     embedding_size: int = 1000,
 ):
     """Returns the model."""
+    if common_model == "id":
+        common = IdModel()
+    elif common_model is None:
+        common = None
+    else:
+        raise ValueError(f"Unknown common model {common_model}.")
     if per_phase_model == "linear":
         phase_models = [
             LinearPerPhaseModel(num_classes=10, embedding_size=embedding_size)
@@ -181,20 +198,24 @@ def get_model(
             )
             for _ in range(10)
         ]
+    elif per_phase_model == "timm_classifier_residual":
+        phase_models = [
+            NormMLPResidualHead(
+                base_model=common,
+                embedding_size=embedding_size,
+            )
+            for _ in range(10)
+        ]
     elif per_phase_model is None:
         phase_models = None
     else:
         raise ValueError(f"Unknown per phase model {per_phase_model}.")
     if aggregator == "concat":
         agg = ConcatAggregator()
+    elif aggregator == "add":
+        agg = AddAggregator()
     else:
         raise ValueError(f"Unknown aggregator {aggregator}.")
-    if common_model == "id":
-        common = IdModel()
-    elif common_model is None:
-        common = None
-    else:
-        raise ValueError(f"Unknown common model {common_model}.")
     return CombinedModel(phase_models, agg, common)
 
 

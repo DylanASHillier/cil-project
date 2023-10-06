@@ -43,9 +43,30 @@ def train_model_cross_entropy(
             optimizer.step()
             agg_loss += loss.item()
             acc += (preds.argmax(dim=1) == y).float().mean().item()
-        print(f"Loss: {agg_loss}")
+        print(f"Loss: {agg_loss/len(dataloader)}")
         print(f"Acc: {acc}")
     return model
+
+
+def contrastive_loss(x1, x2, y, margin=0.5):
+    """Computes the contrastive loss between two embeddings.
+
+    Recover the simclr loss by setting margin=1
+
+    Args:
+        x1: The first embedding.
+        x2: The second embedding.
+        y: The label, 1 if the embeddings are similar, 0 otherwise.
+        tau: The m.
+    """
+    # compute the cosine similarity
+    cos_sim = torch.nn.functional.cosine_similarity(x1, x2)
+    # compute the loss
+    loss = torch.mean(
+        y * torch.pow(cos_sim, 2)
+        + (1 - y) * torch.pow(torch.clamp(margin - cos_sim, min=0.0), 2)
+    )
+    return loss
 
 
 def train_model_contrastive(
@@ -53,7 +74,7 @@ def train_model_contrastive(
     data,
     phase: int,
     history: dict[int, list[torch.Tensor]],
-    batch_size: int = 16,
+    batch_size: int = 32,
     epochs: int = 3,
     lr: float = 5e-3,
     **kwargs,
@@ -77,7 +98,8 @@ def train_model_contrastive(
     xs = [x for x, _ in data]
     ys = [y for _, y in data]
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    criterion = nn.BCEWithLogitsLoss()
+    # criterion = nn.BCEWithLogitsLoss()
+    criterion = contrastive_loss
     for _ in range(epochs):
         agg_loss = 0
         data = _contrastive_pairs(x=xs, y=ys)
@@ -92,13 +114,12 @@ def train_model_contrastive(
             optimizer.zero_grad()
             yhat1 = model.per_phase_models[phase - 1](x1)
             yhat2 = model.per_phase_models[phase - 1](x2)
-            # find the similarity between the two embeddings
-            pred = torch.sum(yhat1 * yhat2, dim=1)
-            loss = criterion(pred, y)
+            # find the cos similarity between the two embeddings
+            loss = criterion(yhat1, yhat2, y, 1)
             loss.backward()
             optimizer.step()
             agg_loss += loss.item()
-        print(f"Loss: {agg_loss}")
+        print(f"Loss: {agg_loss/len(dataloader)}")
     return model
 
 
