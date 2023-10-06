@@ -5,7 +5,9 @@ import torch
 BATCH_SIZE = 64
 
 
-def save_predictions(dataset, embedder, classifier, pred_path, device="cpu", phase=1):
+def save_predictions(
+    dataset, embedder, model, classifier, pred_path, device="cpu", phase=1
+):
     """Saves predictions for the given dataset."""
     lines = []
     xs = [x for x, _ in dataset]
@@ -15,9 +17,9 @@ def save_predictions(dataset, embedder, classifier, pred_path, device="cpu", pha
         batched_xs.append(x)
         if len(batched_xs) == BATCH_SIZE or i == len(xs) - 1:
             with torch.no_grad():
-                embeddings.extend(
-                    embedder(torch.stack(batched_xs).to(device)).squeeze().cpu()
-                )
+                embedding = embedder(torch.stack(batched_xs).to(device)).squeeze()
+                embedding = model(embedding).cpu()
+                embeddings.extend(embedding)
             batched_xs = []
     for j, (_, label) in enumerate(dataset):
         embedding = embeddings[j].numpy()

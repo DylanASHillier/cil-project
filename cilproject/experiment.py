@@ -63,7 +63,6 @@ def run_experiment(
             device=device,
             save_path=f"{data_folder_path}/val_{phase}.pt",
         )
-        print(f"Saving predictions for phase {phase}")
         if model.per_phase_models is not None and train_type == "contrastive":
             model = train.train_model_contrastive(
                 model,
@@ -106,27 +105,28 @@ def run_experiment(
             classifier_name="linear",
             history=model_history,
         )
+        model_val_history = models.get_model_embedded_history(
+            model, val_history, device=device
+        )
+        score = evaluate.evaluate_classifier(
+            model_val_history,
+            classifier,
+        )
+        print(f"Phase {phase} score: {score}")
         if save_preds:
+            print(f"Saving predictions for phase {phase} at {pred_path}")
             predictions.save_predictions(
                 dataset.LeaderboardValDataset(
                     f"{data_folder_path}/Val",
                     dataset.get_imagenet_transform(),
                 ),
                 embedder=embedder,
+                model=model,
                 classifier=classifier,
                 pred_path=pred_path,
                 device="mps",
                 phase=phase,
             )
-        else:
-            model_val_history = models.get_model_embedded_history(
-                model, val_history, device=device
-            )
-            score = evaluate.evaluate_classifier(
-                model_val_history,
-                classifier,
-            )
-            print(f"Phase {phase} score: {score}")
         print(f"Phase {phase}: {len(train_dataset)} images")
 
 

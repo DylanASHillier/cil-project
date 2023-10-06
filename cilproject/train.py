@@ -48,7 +48,7 @@ def train_model_cross_entropy(
     return model
 
 
-def contrastive_loss(x1, x2, y, margin=0.5):
+def contrastive_loss(x1, x2, y, margin=1):
     """Computes the contrastive loss between two embeddings.
 
     Recover the simclr loss by setting margin=1
@@ -61,10 +61,11 @@ def contrastive_loss(x1, x2, y, margin=0.5):
     """
     # compute the cosine similarity
     cos_sim = torch.nn.functional.cosine_similarity(x1, x2)
+    cos_dist = 1 - cos_sim
     # compute the loss
     loss = torch.mean(
-        y * torch.pow(cos_sim, 2)
-        + (1 - y) * torch.pow(torch.clamp(margin - cos_sim, min=0.0), 2)
+        y * torch.pow(cos_dist, 2)
+        + (1 - y) * torch.pow(torch.clamp(margin - cos_dist, min=0.0), 2)
     )
     return loss
 
