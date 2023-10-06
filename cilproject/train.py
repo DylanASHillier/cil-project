@@ -79,7 +79,7 @@ def train_model_contrastive(
     lr: float = 5e-3,
     **kwargs,
 ):
-    """Trains the model using contrastive learning.
+    r"""Trains the model using contrastive learning.
 
     In particular, we use the simclr objective:
     $$
