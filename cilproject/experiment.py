@@ -29,6 +29,7 @@ def run_experiment(
     train_type: str = typer.Option("contrastive"),
     disable_val: bool = typer.Option(False),
     num_epochs: int = typer.Option(10),
+    classifier_name: str = typer.Option("linear"),
 ):
     """Runs an experiment."""
     torch.manual_seed(random_seed)
@@ -129,7 +130,7 @@ def run_experiment(
             )
         model_history = models.get_model_embedded_history(model, history, device=device)
         classifier = classifiers.train_classifier(
-            classifier_name="linear",
+            classifier_name=classifier_name,
             history=model_history,
         )
         if not disable_val:

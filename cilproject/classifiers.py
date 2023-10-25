@@ -1,11 +1,14 @@
 """Stores the classification heads and sklearn training code."""
 import sklearn.linear_model as linear_model
+import sklearn.svm as svm
 
 
 def get_classifier(classifier_name: str):
     """Returns a classifier."""
     if classifier_name == "linear":
         return linear_model.LogisticRegression(multi_class="multinomial", max_iter=1500)
+    if classifier_name == "svm":
+        return svm.SVC(probability=True)
     else:
         raise ValueError(f"Unknown classifier {classifier_name}.")
 
