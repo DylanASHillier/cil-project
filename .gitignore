@@ -162,3 +162,5 @@ cython_debug/
 data/Train
 data/Val
 *.pt
+preds/*.zip
+preds/results

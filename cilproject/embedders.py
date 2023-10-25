@@ -36,7 +36,7 @@ class TimmEmbedder(nn.Module):
         if self.use_existing_head:
             return self.model(x)
         out = self.model.forward_features(x)
-        out = torch.nn.AdaptiveAvgPool2d((1, 1))(out).squeeze()
+        print(out.shape)
         return out
 
     def train(self, mode=True):
@@ -62,3 +62,12 @@ class EmbedderCache(nn.Module):
 def get_embedder(device: str, model_name: str, **kwargs):
     """Returns the embedder."""
     return TimmEmbedder(model_name, **kwargs).to(device)
+
+
+if __name__ == "__main__":
+    embedder = get_embedder("cpu", "repvit_m3.dist_in1k", pretrained=True)
+    random_input = torch.randn(1, 3, 34, 34)
+    out = embedder(random_input)
+    print(out.shape)
+    # check memory size of the model
+    # torch.save(embedder.state_dict(), "embedder.pt")

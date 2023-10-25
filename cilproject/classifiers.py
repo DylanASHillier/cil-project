@@ -5,7 +5,7 @@ import sklearn.linear_model as linear_model
 def get_classifier(classifier_name: str):
     """Returns a classifier."""
     if classifier_name == "linear":
-        return linear_model.LogisticRegression(multi_class="multinomial", max_iter=1000)
+        return linear_model.LogisticRegression(multi_class="multinomial", max_iter=1500)
     else:
         raise ValueError(f"Unknown classifier {classifier_name}.")
 

@@ -6,7 +6,6 @@ import tqdm
 import abc
 from typing import Sequence
 from collections import defaultdict
-import timm.layers.classifier as timm_classifier
 
 
 class PerPhaseModel(nn.Module, abc.ABC):
@@ -102,12 +101,50 @@ class ConcatAggregator(Aggregator):
 
 
 class AddAggregator(Aggregator):
+    def __init__(self, normalize: bool = False):
+        super().__init__()
+        self.normalize = normalize
+
+    def forward(self, common_embedding, per_phase_embeddings):
+        if self.normalize and per_phase_embeddings:
+            per_phase_embeddings = [
+                nn.functional.normalize(x, dim=1) for x in per_phase_embeddings
+            ]
+        if self.normalize and common_embedding:
+            common_embedding = nn.functional.normalize(common_embedding, dim=1)
+        if common_embedding is None:
+            return sum(per_phase_embeddings)
+        elif per_phase_embeddings is None:
+            return common_embedding
+        per_phase_embeddings = [
+            per_phase_embedding - common_embedding
+            for per_phase_embedding in per_phase_embeddings
+        ]
+        return common_embedding + sum(per_phase_embeddings) / len(per_phase_embeddings)
+
+
+class CalibratedAggregator(Aggregator):
+    def __init__(self, n_classes: int = 10):
+        super().__init__()
+        self.scale_params = nn.Parameter(torch.ones(n_classes + 1))
+
+    def reset(self):
+        nn.init.ones_(self.scale_params)
+
     def forward(self, common_embedding, per_phase_embeddings):
         if common_embedding is None:
             return sum(per_phase_embeddings)
         elif per_phase_embeddings is None:
             return common_embedding
-        return common_embedding + sum(per_phase_embeddings)
+        per_phase_embeddings = [
+            per_phase_embedding - common_embedding
+            for per_phase_embedding in per_phase_embeddings
+        ]
+        out = (
+            torch.stack([common_embedding] + per_phase_embeddings, -1)
+            @ self.scale_params[: len(per_phase_embeddings) + 1]
+        )
+        return out
 
 
 class CommonModel(nn.Module, abc.ABC):
@@ -214,6 +251,8 @@ def get_model(
         agg = ConcatAggregator()
     elif aggregator == "add":
         agg = AddAggregator()
+    elif aggregator == "calibrated_add":
+        agg = CalibratedAggregator()
     else:
         raise ValueError(f"Unknown aggregator {aggregator}.")
     return CombinedModel(phase_models, agg, common)
