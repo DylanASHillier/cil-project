@@ -23,3 +23,7 @@ sure your code is clean... I am using `black` and
 `pylint`.
 
 In particular you can lint like `pylint --rcfile=pylintrc $(git ls-files '*.py')` once you install the package.
+
+```
+python cilproject/experiment.py "./data" --pred-path="preds/results" --common-model=id --memory-type=kmeans --phase-model="timm_classifier_residual" --aggregation="add" --embedding-model=vit_base_patch16_224.augreg2_in21k_ft_in1k --num-epochs=10 --classifier-name=linear --random-seed=42 --save-preds --disable-val
+```
