@@ -112,6 +112,7 @@ def run_experiment(
     )
     print(model)
     model.to(device)
+    scores = []
     for phase in range(1, 11):
         train_dataset = dataset.get_train_dataset(
             phase, dataset.get_imagenet_transform(), data_dir=data_folder_path
@@ -212,6 +213,7 @@ def run_experiment(
                 model_val_history,
                 classifier,
             )
+            scores.append(score)
             print(f"Phase {phase} score: {score}")
         if save_preds:
             print(f"Saving predictions for phase {phase} at {pred_path}")
@@ -228,6 +230,9 @@ def run_experiment(
                 phase=phase,
             )
         print(f"Phase {phase}: {len(train_dataset)} images")
+
+    if not disable_val:
+        print(f"Average score: {sum(scores) / len(scores)}")
 
 
 if __name__ == "__main__":
