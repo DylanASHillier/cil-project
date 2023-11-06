@@ -14,6 +14,64 @@ import torch.utils.data
 import typer
 
 
+def per_class_random_split(dataset, split_proportion):
+    """Splits the dataset into train and val such that each class is split
+    proportionally."""
+    train_dataset = []
+    val_dataset = []
+    for label in range(10):
+        label_dataset = torch.utils.data.Subset(
+            dataset, [i for i, (_, y) in enumerate(dataset) if y == label]
+        )
+        train_size = int(split_proportion * len(label_dataset))
+        train_dataset.extend(
+            [
+                items
+                for items in torch.utils.data.Subset(label_dataset, range(train_size))
+            ]
+        )
+        val_dataset.extend(
+            [
+                items
+                for items in torch.utils.data.Subset(
+                    label_dataset, range(train_size, len(label_dataset))
+                )
+            ]
+        )
+    return train_dataset, val_dataset
+
+
+class LabeledLeaderboardDataset(torch.utils.data.Dataset):
+    def __init__(self, dataset, preds, mask):
+        self.dataset = dataset
+        self.preds = preds
+        self.mask = mask
+
+    def __getitem__(self, mask_idx):
+        idx = [i for i, x in enumerate(self.mask) if x][mask_idx]
+        x, _ = self.dataset[idx]
+        y = self.preds[idx]
+        return x, y
+
+    def __len__(self):
+        return len([x for x in self.mask if x])
+
+
+def load_val_dataset(og_data_folder_path: str, phase: int, preds_path: str):
+    """Loads predictions from val leaderboard and uses these
+    to gain additional training data"""
+    val_dataset = dataset.LeaderboardValDataset(
+        f"{og_data_folder_path}/Val",
+        dataset.get_imagenet_transform(),
+    )
+    with open(f"{preds_path}/result_10.txt", "r", encoding="utf-8") as f:
+        preds = f.readlines()
+    preds = [int(x.split(" ")[1]) for x in preds]
+    mask = [x in range((phase - 1) * 10, phase * 10) for x in preds]
+
+    return LabeledLeaderboardDataset(val_dataset, preds, mask)
+
+
 def run_experiment(
     data_folder_path: str = typer.Argument(...),
     device: str = typer.Option("mps"),
@@ -35,12 +93,22 @@ def run_experiment(
     torch.manual_seed(random_seed)
     if aggregation is None:
         aggregation = "concat"
-    embedder = embedders.get_embedder(device, embedding_model, use_existing_head=True)
+    embedder = embedders.get_embedder(
+        device, embedding_model, use_existing_head=common_model != "timm"
+    )
+    embedding_size = 1000
+    if common_model == "timm":
+        common_model = embedder.model.head
+        embedding_size = 512
     embedder = embedders.EmbedderCache(embedder)
     history = collections.defaultdict(list)
     val_history = collections.defaultdict(list)
     model = models.get_model(
-        phase_model, aggregation, common_model, embedding_size=1000
+        phase_model,
+        aggregation,
+        common_model,
+        embedding_size=embedding_size,
+        output_size=1000,
     )
     print(model)
     model.to(device)
@@ -49,15 +117,18 @@ def run_experiment(
             phase, dataset.get_imagenet_transform(), data_dir=data_folder_path
         )
         if not disable_val:
-            train_ds, val_ds = torch.utils.data.random_split(
-                train_dataset,
-                [
-                    int(0.8 * len(train_dataset)),
-                    len(train_dataset) - int(0.8 * len(train_dataset)),
-                ],
-            )
+            # train_ds, val_ds = torch.utils.data.random_split(
+            #     train_dataset,
+            #     [
+            #         int(0.8 * len(train_dataset)),
+            #         len(train_dataset) - int(0.8 * len(train_dataset)),
+            #     ],
+            # )
+            train_ds, val_ds = per_class_random_split(train_dataset, 0.8)
         else:
             train_ds = train_dataset
+        # additional_data = load_val_dataset(f"{data_folder_path}", phase, pred_path)
+        # train_ds = torch.utils.data.ConcatDataset([train_ds, additional_data])
         train_ds = dataset.EmbeddedDataset(
             train_ds,
             embedder,
@@ -146,7 +217,7 @@ def run_experiment(
             print(f"Saving predictions for phase {phase} at {pred_path}")
             predictions.save_predictions(
                 dataset.LeaderboardValDataset(
-                    f"{data_folder_path}/Val",
+                    f"{data_folder_path}/Test",
                     dataset.get_imagenet_transform(),
                 ),
                 embedder=embedder,

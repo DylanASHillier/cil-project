@@ -66,18 +66,41 @@ class NormMlpClassifierHead(PerPhaseModel):
 
 
 class NormMLPResidualHead(PerPhaseModel):
-    def __init__(self, base_model, embedding_size: int):
+    def __init__(self, base_model, embedding_size: int, output_size: int):
         super().__init__()
         self.base_model = base_model
         self.residual_model = NormMlpClassifierHead(
             in_features=embedding_size,
-            num_classes=embedding_size,
+            num_classes=output_size,
         )
 
     def forward(self, x):
         with torch.no_grad():
             x_base = self.base_model(x)
         return x_base + self.residual_model(x)
+
+
+class NormMLPPhasedResidualHead(PerPhaseModel):
+    def __init__(self, base_model, embedding_size: int, phase: int):
+        super().__init__()
+        self.base_model = base_model
+        self.residual_model = NormMlpClassifierHead(
+            in_features=embedding_size,
+            num_classes=embedding_size // 10,
+        )
+        self.idx_mod = embedding_size // 10
+        self.phase = phase
+
+    def forward(self, x):
+        with torch.no_grad():
+            x_base = self.base_model(x)
+        partial_residual = self.residual_model(x)
+        zeros = torch.zeros_like(x_base)
+        zeros[
+            :, self.phase * self.idx_mod : (self.phase + 1) * self.idx_mod
+        ] = partial_residual
+        return x_base + zeros
+        # return x_base
 
 
 class Aggregator(nn.Module, abc.ABC):
@@ -114,13 +137,37 @@ class AddAggregator(Aggregator):
             common_embedding = nn.functional.normalize(common_embedding, dim=1)
         if common_embedding is None:
             return sum(per_phase_embeddings)
+        elif per_phase_embeddings is None or len(per_phase_embeddings) == 0:
+            return common_embedding
+        per_phase_embeddings = [
+            per_phase_embedding - common_embedding
+            for per_phase_embedding in per_phase_embeddings
+        ]
+        # We can try different ways of combining...
+        # out = common_embedding + sum(per_phase_embeddings)
+        # out = nn.functional.normalize(out, dim=1)
+        out = common_embedding + sum(per_phase_embeddings) / len(per_phase_embeddings)
+        return out
+
+
+class AddConcatAggregator(Aggregator):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, common_embedding, per_phase_embeddings):
+        if common_embedding is None:
+            return torch.cat(per_phase_embeddings, dim=1)
         elif per_phase_embeddings is None:
             return common_embedding
         per_phase_embeddings = [
             per_phase_embedding - common_embedding
             for per_phase_embedding in per_phase_embeddings
         ]
-        return common_embedding + sum(per_phase_embeddings) / len(per_phase_embeddings)
+        mod_embedding = sum([common_embedding] + per_phase_embeddings) / (
+            len(per_phase_embeddings) + 1
+        )
+        out = torch.cat([common_embedding, mod_embedding], dim=1)
+        return out
 
 
 class CalibratedAggregator(Aggregator):
@@ -199,15 +246,64 @@ class CombinedModel(nn.Module):
         return self.aggregator(common_embedding, per_phase_embeddings)
 
 
+class AdaptiveCombinedModel(CombinedModel):
+    """Model similar to combined model, but which only updates the first
+    phase model during training to learn domain-specific features."""
+
+    def __init__(
+        self,
+        per_phase_models: Sequence[PerPhaseModel] | None,
+        aggregator: Aggregator,
+        common_model: CommonModel | None = None,
+    ):
+        super().__init__(per_phase_models, aggregator, common_model)
+        self.per_phase_models = nn.ModuleList(per_phase_models)
+        self.curr_phase = 0
+
+    def forward(self, *args, **kwargs):
+        if self.common_model is None:
+            common_embedding = None
+        else:
+            common_embedding = self.common_model(*args, **kwargs)
+        if self.per_phase_models is None:
+            per_phase_embeddings = None
+        else:
+            per_phase_embeddings = [
+                per_phase_model(*args, **kwargs)
+                for i, per_phase_model in enumerate(self.per_phase_models)
+                if i == 0
+            ]
+        out = self.aggregator(common_embedding, per_phase_embeddings)
+        ## normalize the output
+        # out = nn.functional.normalize(out, dim=1)
+        return out
+
+
 def get_model(
     per_phase_model: str | None,
     aggregator: str,
-    common_model: str | None = None,
+    common_model: str | torch.nn.Module | None = None,
     embedding_size: int = 1000,
+    output_size: int = 1000,
 ):
     """Returns the model."""
+    if per_phase_model == "adaptive":
+        return AdaptiveCombinedModel(
+            per_phase_models=[
+                NormMLPResidualHead(
+                    base_model=IdModel(),
+                    embedding_size=embedding_size,
+                    output_size=output_size,
+                )
+                for _ in range(10)
+            ],
+            aggregator=AddAggregator(),
+            common_model=IdModel(),
+        )
     if common_model == "id":
         common = IdModel()
+    elif common_model is not str:
+        common = common_model
     elif common_model is None:
         common = None
     else:
@@ -240,6 +336,27 @@ def get_model(
             NormMLPResidualHead(
                 base_model=common,
                 embedding_size=embedding_size,
+                output_size=output_size,
+            )
+            for _ in range(10)
+        ]
+    elif per_phase_model == "timm_classifier_residual_2":
+        phase_models = [
+            NormMLPPhasedResidualHead(
+                base_model=common,
+                embedding_size=embedding_size,
+                phase=i,
+            )
+            for i in range(10)
+        ]
+    elif per_phase_model == "timm_classifier_pseudo_residual":
+        phase_models = [
+            NormMLPResidualHead(
+                base_model=lambda x: torch.zeros((x.shape[0], output_size)).to(
+                    x.device
+                ),
+                embedding_size=embedding_size,
+                output_size=output_size,
             )
             for _ in range(10)
         ]
@@ -253,6 +370,8 @@ def get_model(
         agg = AddAggregator()
     elif aggregator == "calibrated_add":
         agg = CalibratedAggregator()
+    elif aggregator == "cat_add":
+        agg = AddConcatAggregator()
     else:
         raise ValueError(f"Unknown aggregator {aggregator}.")
     return CombinedModel(phase_models, agg, common)

@@ -32,11 +32,14 @@ class TimmEmbedder(nn.Module):
         self.use_existing_head = use_existing_head
 
     def forward(self, x: torch.Tensor):
-        """Forward pass through the embedder."""
+        """Forward pass through the embedder.
+
+        N.B. We usually use use_existing_head=True for our experiments."""
         if self.use_existing_head:
             return self.model(x)
         out = self.model.forward_features(x)
-        print(out.shape)
+        out = torch.nn.AdaptiveAvgPool2d((1, 1))(out)
+        out = out.view(out.size(0), -1)
         return out
 
     def train(self, mode=True):
@@ -65,9 +68,22 @@ def get_embedder(device: str, model_name: str, **kwargs):
 
 
 if __name__ == "__main__":
-    embedder = get_embedder("cpu", "repvit_m3.dist_in1k", pretrained=True)
+    embedder = get_embedder(
+        "cpu", "repvit_m3.dist_in1k", pretrained=True, use_existing_head=False
+    )
     random_input = torch.randn(1, 3, 34, 34)
     out = embedder(random_input)
-    print(out.shape)
+    out = torch.nn.AdaptiveAvgPool2d((1, 1))(out)
+    out = out.view(out.size(0), -1)
+    out = embedder.model.head(out)
+    embedder_2 = get_embedder(
+        "cpu", "repvit_m3.dist_in1k", pretrained=True, use_existing_head=True
+    )
+    out_2 = embedder_2(random_input)
+    # calc difference
+    diff = torch.sum(out - out_2)
+    print(diff)
+
+    # out = embedder.model.head(out)
     # check memory size of the model
     # torch.save(embedder.state_dict(), "embedder.pt")

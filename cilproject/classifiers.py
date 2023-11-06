@@ -16,7 +16,7 @@ def get_classifier(classifier_name: str):
     if classifier_name == "rfc":
         return ensemble.RandomForestClassifier()
     if classifier_name == "knn":
-        return neighbors.KNeighborsClassifier()
+        return neighbors.KNeighborsClassifier(n_neighbors=1, weights="distance")
     if classifier_name == "naive_bayes":
         return naive_bayes.GaussianNB()
     if classifier_name == "mlp":

@@ -25,6 +25,19 @@ class LeaderboardValDataset(data.Dataset):
         return len(self.dataset)
 
 
+class LeaderboardTestDataset(data.Dataset):
+    """The leaderboard test dataset."""
+
+    def __init__(self, path, transform):
+        self.dataset = torchvision.datasets.ImageFolder(path, transform=transform)
+
+    def __getitem__(self, index):
+        return self.dataset[index][0], self.dataset.imgs[index][0]
+
+    def __len__(self):
+        return len(self.dataset)
+
+
 class EmbeddedDataset(data.Dataset):
     """A dataset that returns the embedding of the image."""
 
