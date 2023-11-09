@@ -12,6 +12,13 @@ def get_train_dataset(phase, transform, data_dir="data"):
     )
 
 
+def get_extra_dataset(phase, transform, data_dir="data"):
+    """Returns the train dataset for a given phase."""
+    return torchvision.datasets.ImageFolder(
+        f"{data_dir}/phase_{phase}", transform=transform
+    )
+
+
 class LeaderboardValDataset(data.Dataset):
     """The leaderboard val dataset."""
 

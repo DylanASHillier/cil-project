@@ -113,10 +113,22 @@ def run_experiment(
     print(model)
     model.to(device)
     scores = []
+    val_imgs = {}
     for phase in range(1, 11):
+        class_imgs = {}
+
         train_dataset = dataset.get_train_dataset(
             phase, dataset.get_imagenet_transform(), data_dir=data_folder_path
         )
+
+        for item in train_dataset.imgs:
+            class_label = (phase - 1) * 10 + item[1]
+            if class_label not in class_imgs:
+                class_imgs[class_label] = [item[0]]
+            else:
+                class_imgs[class_label].append(item[0])
+        for k, v in class_imgs.items():
+            val_imgs[k] = v[int(0.8 * len(v)) :]
         if not disable_val:
             # train_ds, val_ds = torch.utils.data.random_split(
             #     train_dataset,
@@ -210,13 +222,26 @@ def run_experiment(
                 model, val_history, device=device
             )
             score = evaluate.evaluate_classifier(
-                model_val_history,
-                classifier,
+                model_val_history, classifier, val_imgs, embedding_model, phase
             )
             scores.append(score)
             print(f"Phase {phase} score: {score}")
         if save_preds:
-            print(f"Saving predictions for phase {phase} at {pred_path}")
+            print(f"Saving predictions for phase {phase} at Val")
+            predictions.save_predictions(
+                dataset.LeaderboardValDataset(
+                    f"{data_folder_path}/Val",
+                    dataset.get_imagenet_transform(),
+                ),
+                embedder=embedder,
+                model=model,
+                classifier=classifier,
+                pred_path="preds/val",
+                device="mps",
+                phase=phase,
+            )
+
+            print(f"Saving predictions for phase {phase} at Test")
             predictions.save_predictions(
                 dataset.LeaderboardValDataset(
                     f"{data_folder_path}/Test",
@@ -225,7 +250,7 @@ def run_experiment(
                 embedder=embedder,
                 model=model,
                 classifier=classifier,
-                pred_path=pred_path,
+                pred_path="preds/test",
                 device="mps",
                 phase=phase,
             )
@@ -233,6 +258,9 @@ def run_experiment(
 
     if not disable_val:
         print(f"Average score: {sum(scores) / len(scores)}")
+    print(scores)
+    for idx, item in enumerate(scores):
+        print(f"{idx+1}: {item:.4f} |")
 
 
 if __name__ == "__main__":
